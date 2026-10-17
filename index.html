@@ -72,6 +72,21 @@ button{touch-action:manipulation}
  .focus-layer .cat-button{width:140px;height:140px}
  .focus-layer .cat-ground{width:160px;height:15px}
 }
+.reset-tools{width:100%;display:flex;flex-direction:column;align-items:center;margin-top:8px;gap:6px}
+.reset-tools[hidden],.reset-form[hidden]{display:none}
+.reset-toggle{display:grid;place-items:center;width:44px;height:44px;padding:0;background:transparent;border:0;color:#8a907b}
+.reset-toggle svg{width:13px;height:13px;transition:transform .2s ease}
+.reset-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
+.reset-toggle:hover{color:var(--green)}
+.reset-form{width:min(270px,100%);display:flex;align-items:center;gap:8px}
+.reset-input{width:100%;min-width:0;flex:1;min-height:44px;padding:10px 12px;border:1px solid #d9d9c8;border-radius:0;background:var(--cream);color:var(--ink);font:16px/1.4 var(--body);-webkit-appearance:none;appearance:none}
+.reset-input:focus{outline:2px solid #a4ae92;outline-offset:2px}
+.reset-input[aria-invalid=true]{border-color:#b56752}
+.reset-submit{display:grid;place-items:center;flex-shrink:0;width:44px;height:44px;padding:0;border:1px solid #d9d9c8;background:#eef0e4;color:var(--green)}
+.reset-submit svg{width:18px;height:18px}
+.reset-status{margin:0;min-height:0;font-size:12px;line-height:1.5;color:#99624f;text-align:center}
+.reset-status:empty{display:none}
+@media(max-height:650px){html[data-reset-open="1"] .focus-layer .cat-area{height:110px;margin-top:18px}html[data-reset-open="1"] .focus-layer .cat-button{width:115px;height:115px}html[data-reset-open="1"] .focus-layer .cat-ground{width:135px;height:13px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}.pet-particle{display:none}.celebration-heart{opacity:.8}}
 </style>
 </head>
@@ -130,6 +145,17 @@ button{touch-action:manipulation}
 <path d="M23 49h8v7h-8Zm23 0h8v7h-8Z" fill="#fff0d5"/><path d="M24 54h7v2h-7Zm22 0h7v2h-7Z" fill="#e5cfaa"/>
 </g></svg></button>
   </div>
+  <div class="reset-tools" id="reset-tools" hidden>
+   <button class="reset-toggle" id="reset-toggle" type="button" aria-label="Открыть поле пароля" aria-expanded="false" aria-controls="reset-form">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 4h3v3h3v3h2V7h3V4h3v4h-3v3H9v3H7v-3H4V8H1Z" fill="currentColor"/></svg>
+   </button>
+   <form class="reset-form" id="reset-form" hidden autocomplete="off">
+    <label class="sr-only" for="reset-password">Пароль для повторного просмотра</label>
+    <input class="reset-input" id="reset-password" type="password" placeholder="Пароль" required maxlength="64" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="reset-status">
+    <button class="reset-submit" type="submit" aria-label="Начать заново"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 6a7 7 0 1 0 1 6M16 2v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></button>
+   </form>
+   <p class="reset-status" id="reset-status" role="status" aria-live="polite"></p>
+  </div>
  </section>
 </div>
 <div class="heart-layer" id="heart-layer" aria-hidden="true"></div>
@@ -138,12 +164,15 @@ button{touch-action:manipulation}
 (()=>{
  'use strict';
  const STORAGE_KEY='sonya.date.2026-10-19.map-sealed';
+ // Convenience for local testing; this static page does not use server authentication.
+ const RESET_PASSWORD='murr1910';
  const FINAL='Я показываю карту только один раз, хехе';
  const INTRO='Мур-р… Кажется, у кого-то свидание намечается. Ищи подсказки на карте.';
  const MAP_INTRO='Сонька, 19 октября в 16:30. На карте две маленькие тайны. Нажми на любую — я подскажу ♡';
  const $=id=>document.getElementById(id);
  const html=document.documentElement;
  const world=$('world'),narrator=$('narrator'),dock=$('narrator-dock'),focus=$('focus-layer'),speech=$('speech'),catArea=$('cat-area'),hearts=$('heart-layer');
+ const resetTools=$('reset-tools'),resetToggle=$('reset-toggle'),resetForm=$('reset-form'),resetInput=$('reset-password'),resetStatus=$('reset-status');
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const hints={
   1:['Не все истории живут в книгах. В некоторые можно заглянуть, а в другие — даже войти.','Здесь фантазия обретает форму, а взрослым разрешается ненадолго стать детьми. Мур.'],
@@ -175,6 +204,7 @@ button{touch-action:manipulation}
   html.dataset.locked='1';setPhase('locked');say(FINAL);
   world.inert=true;world.setAttribute('aria-hidden','true');world.remove();
   hearts.replaceChildren();hearts.style.opacity='1';
+  resetTools.hidden=false;
  }
  async function openMap(){
   if(sealed||remembered()){lockScene();return}
@@ -220,6 +250,25 @@ button{touch-action:manipulation}
   petTimer=setTimeout(()=>{if(phase==='map'&&!sealed)speech.textContent=baseSpeech},2100);
  });
  $('accept-date').addEventListener('click',celebrate);
+ function setResetOpen(open){
+  resetForm.hidden=!open;resetToggle.setAttribute('aria-expanded',String(open));
+  resetToggle.setAttribute('aria-label',open?'Скрыть поле пароля':'Открыть поле пароля');
+  html.dataset.resetOpen=open?'1':'0';resetStatus.textContent='';resetInput.removeAttribute('aria-invalid');
+  if(open)resetInput.focus();else{resetInput.value='';resetToggle.focus({preventScroll:true})}
+ }
+ resetToggle.addEventListener('click',()=>{if(phase==='locked')setResetOpen(resetForm.hidden)});
+ resetInput.addEventListener('input',()=>{resetStatus.textContent='';resetInput.removeAttribute('aria-invalid')});
+ resetInput.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();setResetOpen(false)}});
+ resetForm.addEventListener('submit',event=>{
+  event.preventDefault();if(phase!=='locked'||resetForm.hidden)return;
+  if(resetInput.value!==RESET_PASSWORD){
+   resetStatus.textContent='Не тот пароль, мур.';resetInput.setAttribute('aria-invalid','true');resetInput.focus();return;
+  }
+  try{localStorage.removeItem(STORAGE_KEY)}catch{
+   if(remembered()){resetStatus.textContent='Не получилось сбросить. Разреши хранение данных для сайта.';return}
+  }
+  resetInput.value='';window.location.reload();
+ });
  window.addEventListener('storage',event=>{if(event.key===STORAGE_KEY&&event.newValue==='1')lockScene()});
  window.addEventListener('pageshow',()=>{if(remembered()&&phase!=='locked')lockScene()});
  if(html.dataset.locked==='1'||remembered())lockScene();
